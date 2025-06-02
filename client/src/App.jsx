@@ -514,7 +514,7 @@ function App() {
                 <h2>🤖 AI Chat Interface</h2>
                 <p>Select an AI model and start chatting!</p>
                 
-                <div className="status-guide">
+                {/* <div className="status-guide">
                   <h3>Status Guide:</h3>
                   <div className="status-item">
                     <span className="status-badge" style={{ backgroundColor: '#10b981' }}>LIVE</span>
@@ -528,7 +528,7 @@ function App() {
                     <span className="status-badge" style={{ backgroundColor: '#6b7280' }}>COMING_SOON</span>
                     <span>Integration planned for future release</span>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
           )}
