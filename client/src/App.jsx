@@ -368,7 +368,7 @@ function App() {
             <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🐱</div>
             <h2 style={{ margin: 0, marginBottom: '0.5rem' }}>Welcome to AI Chat!</h2>
             <p style={{ margin: 0, marginBottom: '1rem' }}>Select an AI model from the cat menu above and start chatting.</p>
-            <div style={{
+            {/* <div style={{
               backgroundColor: '#f0f9ff',
               border: '1px solid #0ea5e9',
               borderRadius: '8px',
@@ -416,7 +416,7 @@ function App() {
                   Placeholder responses only
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         )}
         
