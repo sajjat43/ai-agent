@@ -8,6 +8,10 @@ function App() {
   const [selectedAgent, setSelectedAgent] = useState('gemini-1.5-flash');
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [serverStatus, setServerStatus] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [sessions, setSessions] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const messagesEndRef = useRef(null);
 
   const agents = [
@@ -110,6 +114,104 @@ function App() {
     }
   ];
 
+  // Generate or get session ID
+  useEffect(() => {
+    const storedSessionId = localStorage.getItem('currentSessionId');
+    if (storedSessionId) {
+      setSessionId(storedSessionId);
+      loadChatHistory(storedSessionId);
+    } else {
+      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      setSessionId(newSessionId);
+      localStorage.setItem('currentSessionId', newSessionId);
+    }
+  }, []);
+
+  // Load chat history for a session
+  const loadChatHistory = async (sessionId) => {
+    try {
+      setLoadingHistory(true);
+      const response = await fetch(`http://localhost:5000/api/history/${sessionId}`);
+      const data = await response.json();
+      
+      if (response.ok && data.chats) {
+        const formattedMessages = data.chats.map((chat, index) => [
+          {
+            id: `user_${index}`,
+            text: chat.userMessage,
+            sender: 'user',
+            timestamp: new Date(chat.timestamp).toLocaleTimeString()
+          },
+          {
+            id: `ai_${index}`,
+            text: chat.aiResponse,
+            sender: 'ai',
+            agent: agents.find(agent => agent.id === chat.model) || agents[0],
+            actualModel: chat.model,
+            provider: chat.provider,
+            status: chat.status,
+            timestamp: new Date(chat.timestamp).toLocaleTimeString()
+          }
+        ]).flat();
+        
+        setMessages(formattedMessages);
+      }
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Load all sessions
+  const loadSessions = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/sessions');
+      const data = await response.json();
+      
+      if (response.ok && data.sessions) {
+        setSessions(data.sessions);
+      }
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+    }
+  };
+
+  // Start new session
+  const startNewSession = () => {
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setSessionId(newSessionId);
+    localStorage.setItem('currentSessionId', newSessionId);
+    setMessages([]);
+    setShowHistory(false);
+  };
+
+  // Switch to existing session
+  const switchToSession = (sessionId) => {
+    setSessionId(sessionId);
+    localStorage.setItem('currentSessionId', sessionId);
+    loadChatHistory(sessionId);
+    setShowHistory(false);
+  };
+
+  // Delete session
+  const deleteSession = async (sessionId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/history/${sessionId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        setSessions(sessions.filter(session => session._id !== sessionId));
+        if (sessionId === sessionId) {
+          startNewSession();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+    }
+  };
+
   // Fetch server status on component mount
   useEffect(() => {
     fetchServerStatus();
@@ -179,7 +281,8 @@ function App() {
         body: JSON.stringify({
           message: userMessage,
           model: selectedAgent,
-          provider: selectedAgentData.provider
+          provider: selectedAgentData.provider,
+          sessionId: sessionId
         }),
       });
 
@@ -241,6 +344,11 @@ function App() {
               <div className="agent-details">
                 <h1 className="agent-name">{selectedAgentData.name}</h1>
                 <p className="agent-description">{selectedAgentData.description}</p>
+                {sessionId && (
+                  <div className="session-info">
+                    Session: {sessionId.split('_')[1] ? new Date(parseInt(sessionId.split('_')[1])).toLocaleString() : sessionId}
+                  </div>
+                )}
               </div>
               <div className="status-badges">
                 <span 
@@ -253,6 +361,24 @@ function App() {
                   {selectedAgentData.provider.toUpperCase()}
                 </span>
               </div>
+            </div>
+            
+            <div className="header-controls">
+              <button 
+                className="history-button"
+                onClick={() => {
+                  setShowHistory(true);
+                  loadSessions();
+                }}
+              >
+                📜 History
+              </button>
+              <button 
+                className="new-session-button"
+                onClick={startNewSession}
+              >
+                🆕 New Session
+              </button>
             </div>
             
             {/* Agent Selector */}
@@ -319,6 +445,66 @@ function App() {
             </div>
           </div>
         </div>
+
+        {/* History Sidebar */}
+        {showHistory && (
+          <div className="history-sidebar">
+            <div className="history-header">
+              <h3>Chat History</h3>
+              <button 
+                className="close-history"
+                onClick={() => setShowHistory(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="history-content">
+              {loadingHistory ? (
+                <div className="loading-history">
+                  <div className="loading-spinner"></div>
+                  <p>Loading sessions...</p>
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="no-sessions">
+                  <p>No chat sessions found.</p>
+                  <p>Start a conversation to create your first session!</p>
+                </div>
+              ) : (
+                sessions.map((session) => (
+                  <div key={session._id} className="session-item">
+                    <div className="session-info">
+                      <div className="session-id">
+                        Session {session._id.split('_')[1] ? 
+                          new Date(parseInt(session._id.split('_')[1])).toLocaleDateString() : 
+                          session._id.substring(0, 12)}
+                      </div>
+                      <div className="session-meta">
+                        {session.messageCount} messages • {session.models.join(', ')}
+                      </div>
+                      <div className="session-date">
+                        {new Date(session.lastMessage).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="session-actions">
+                      <button 
+                        className="load-session"
+                        onClick={() => switchToSession(session._id)}
+                      >
+                        Load
+                      </button>
+                      <button 
+                        className="delete-session"
+                        onClick={() => deleteSession(session._id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <div className="messages-container">
@@ -419,6 +605,7 @@ function App() {
           </div>
           <div className="input-hint">
             Press Enter to send • Currently using: <strong>{selectedAgentData.name}</strong>
+            {sessionId && <span> • Session: {sessionId.substring(0, 12)}...</span>}
           </div>
         </form>
       </div>

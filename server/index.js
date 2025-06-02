@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
@@ -10,6 +11,59 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log('🗄️  Connected to MongoDB successfully');
+  })
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err.message);
+  });
+
+// Chat History Schema
+const chatHistorySchema = new mongoose.Schema({
+  sessionId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  userMessage: {
+    type: String,
+    required: true
+  },
+  aiResponse: {
+    type: String,
+    required: true
+  },
+  model: {
+    type: String,
+    required: true
+  },
+  provider: {
+    type: String,
+    required: true
+  },
+  responseTime: {
+    type: Number,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ['success', 'error', 'placeholder'],
+    required: true
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now
+  },
+  userAgent: String,
+  ipAddress: String
+}, {
+  timestamps: true
+});
+
+const ChatHistory = mongoose.model('ChatHistory', chatHistorySchema);
 
 // Usage tracking
 const usageStats = {
@@ -251,14 +305,38 @@ const supportedModels = {
   }
 };
 
+// Save chat to database
+const saveChatHistory = async (sessionId, userMessage, aiResponse, model, provider, responseTime, status, req) => {
+  try {
+    const chatRecord = new ChatHistory({
+      sessionId,
+      userMessage,
+      aiResponse,
+      model,
+      provider,
+      responseTime,
+      status,
+      userAgent: req.headers['user-agent'],
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+    
+    await chatRecord.save();
+    console.log(`💾 Chat saved to database | Session: ${sessionId} | Model: ${model}`);
+  } catch (error) {
+    console.error('❌ Error saving chat history:', error.message);
+  }
+};
+
 app.post('/api/chat', async (req, res) => {
-  const { message, model, provider } = req.body;
+  const { message, model, provider, sessionId } = req.body;
   const requestStart = Date.now();
+  const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   console.log('\n🔄 NEW REQUEST');
   console.log(`📝 Message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`);
   console.log(`🎯 Requested Model: ${model}`);
   console.log(`🏢 Provider: ${provider.toUpperCase()}`);
+  console.log(`🔗 Session ID: ${currentSessionId}`);
   console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
 
   // Validation
@@ -290,22 +368,31 @@ app.post('/api/chat', async (req, res) => {
     const totalTime = Date.now() - requestStart;
     console.log(`✅ Request completed in ${totalTime}ms | Model: ${result.actualModel} | Provider: ${result.provider.toUpperCase()}\n`);
     
+    // Save to database
+    await saveChatHistory(currentSessionId, message, result.response, result.actualModel, result.provider, totalTime, result.status, req);
+    
     res.json({
       response: result.response,
       model: result.actualModel,
       provider: result.provider,
       status: result.status,
+      sessionId: currentSessionId,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
     const totalTime = Date.now() - requestStart;
     console.error(`❌ Request failed after ${totalTime}ms | Model: ${model} | Provider: ${provider.toUpperCase()} | Error: ${err.message}\n`);
     logModelUsage(provider, model, 'error', totalTime, err);
+    
+    // Save error to database
+    await saveChatHistory(currentSessionId, message, `Error: ${err.message}`, model, provider, totalTime, 'error', req);
+    
     res.status(500).json({ 
       error: err.message,
       model,
       provider,
-      status: 'error'
+      status: 'error',
+      sessionId: currentSessionId
     });
   }
 });
@@ -326,7 +413,8 @@ app.get('/api/health', (req, res) => {
       google: !!process.env.GEMINI_API_KEY,
       openai: !!process.env.OPENAI_API_KEY,
       anthropic: !!process.env.ANTHROPIC_API_KEY
-    }
+    },
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
 
@@ -346,12 +434,126 @@ app.get('/api/models', (req, res) => {
 });
 
 // Usage statistics endpoint
-app.get('/api/stats', (req, res) => {
-  res.json({
-    ...usageStats,
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
+app.get('/api/stats', async (req, res) => {
+  try {
+    const totalChats = await ChatHistory.countDocuments();
+    const modelStats = await ChatHistory.aggregate([
+      { $group: { _id: '$model', count: { $sum: 1 }, avgResponseTime: { $avg: '$responseTime' } } },
+      { $sort: { count: -1 } }
+    ]);
+    const providerStats = await ChatHistory.aggregate([
+      { $group: { _id: '$provider', count: { $sum: 1 }, avgResponseTime: { $avg: '$responseTime' } } },
+      { $sort: { count: -1 } }
+    ]);
+    const recentChats = await ChatHistory.find()
+      .sort({ timestamp: -1 })
+      .limit(10)
+      .select('model provider status responseTime timestamp');
+
+    res.json({
+      ...usageStats,
+      database: {
+        totalChats,
+        modelStats,
+        providerStats,
+        recentChats
+      },
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch statistics', message: error.message });
+  }
+});
+
+// Get chat history for a session
+app.get('/api/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { limit = 50, page = 1 } = req.query;
+    
+    const chats = await ChatHistory.find({ sessionId })
+      .sort({ timestamp: 1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .select('userMessage aiResponse model provider status responseTime timestamp');
+    
+    const totalChats = await ChatHistory.countDocuments({ sessionId });
+    
+    console.log(`📚 Retrieved ${chats.length} chat records for session: ${sessionId}`);
+    
+    res.json({
+      sessionId,
+      chats,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalChats,
+        pages: Math.ceil(totalChats / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching chat history:', error.message);
+    res.status(500).json({ error: 'Failed to fetch chat history', message: error.message });
+  }
+});
+
+// Get all sessions
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const { limit = 20, page = 1 } = req.query;
+    
+    const sessions = await ChatHistory.aggregate([
+      {
+        $group: {
+          _id: '$sessionId',
+          lastMessage: { $last: '$timestamp' },
+          messageCount: { $sum: 1 },
+          models: { $addToSet: '$model' },
+          providers: { $addToSet: '$provider' }
+        }
+      },
+      { $sort: { lastMessage: -1 } },
+      { $skip: (parseInt(page) - 1) * parseInt(limit) },
+      { $limit: parseInt(limit) }
+    ]);
+    
+    const totalSessions = await ChatHistory.distinct('sessionId').then(sessions => sessions.length);
+    
+    console.log(`📋 Retrieved ${sessions.length} sessions`);
+    
+    res.json({
+      sessions,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalSessions,
+        pages: Math.ceil(totalSessions / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error fetching sessions:', error.message);
+    res.status(500).json({ error: 'Failed to fetch sessions', message: error.message });
+  }
+});
+
+// Delete chat history for a session
+app.delete('/api/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const result = await ChatHistory.deleteMany({ sessionId });
+    
+    console.log(`🗑️  Deleted ${result.deletedCount} chat records for session: ${sessionId}`);
+    
+    res.json({
+      message: 'Chat history deleted successfully',
+      deletedCount: result.deletedCount,
+      sessionId
+    });
+  } catch (error) {
+    console.error('❌ Error deleting chat history:', error.message);
+    res.status(500).json({ error: 'Failed to delete chat history', message: error.message });
+  }
 });
 
 app.listen(5000, () => {
