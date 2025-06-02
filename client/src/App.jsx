@@ -244,7 +244,7 @@ function App() {
               boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
               zIndex: 1000,
               minWidth: '320px',
-              maxHeight: '400px',
+              maxHeight: '600px',
               overflowY: 'auto',
               overflow: 'hidden'
             }}>
