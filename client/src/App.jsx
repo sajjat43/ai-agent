@@ -462,6 +462,9 @@ function App() {
         
         // Reload files to get updated analysis count
         loadUploadedFiles();
+        
+        // Reload chat history to ensure persistence
+        await loadChatHistory(sessionId);
       } else {
         console.error('❌ Analysis failed:', data);
         alert(`Analysis failed: ${data.error || 'Unknown error'}`);
