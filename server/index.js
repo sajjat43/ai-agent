@@ -5,6 +5,10 @@ import mongoose from 'mongoose';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import multer from 'multer';
+import mime from 'mime-types';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -64,6 +68,176 @@ const chatHistorySchema = new mongoose.Schema({
 });
 
 const ChatHistory = mongoose.model('ChatHistory', chatHistorySchema);
+
+// File Upload Schema
+const fileUploadSchema = new mongoose.Schema({
+  sessionId: {
+    type: String,
+    required: true,
+    index: true
+  },
+  originalName: {
+    type: String,
+    required: true
+  },
+  filename: {
+    type: String,
+    required: true
+  },
+  mimetype: {
+    type: String,
+    required: true
+  },
+  size: {
+    type: Number,
+    required: true
+  },
+  content: {
+    type: String,
+    required: true
+  },
+  analysisPrompts: [{
+    prompt: String,
+    response: String,
+    model: String,
+    provider: String,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  }
+}, {
+  timestamps: true
+});
+
+const FileUpload = mongoose.model('FileUpload', fileUploadSchema);
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer configuration
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow text files, documents, and common file types
+    const allowedTypes = [
+      'text/plain',
+      'text/csv',
+      'application/json',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/html',
+      'text/xml',
+      'application/xml',
+      'text/markdown'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype) || file.mimetype.startsWith('text/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('File type not supported. Please upload text files, documents, or CSV files.'), false);
+    }
+  }
+});
+
+// File reading utility
+const readFileContent = async (filePath, mimetype) => {
+  try {
+    console.log(`📖 Reading file content: ${filePath}`);
+    console.log(`📄 MIME type: ${mimetype}`);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File does not exist: ${filePath}`);
+    }
+    
+    // Get file stats
+    const stats = fs.statSync(filePath);
+    console.log(`📊 File size: ${stats.size} bytes`);
+    
+    if (mimetype.startsWith('text/') || mimetype === 'application/json') {
+      console.log(`📝 Reading as text file`);
+      const content = fs.readFileSync(filePath, 'utf8');
+      console.log(`✅ Text content read, length: ${content.length} characters`);
+      return content;
+    } else if (mimetype === 'application/pdf') {
+      console.log(`📄 Reading as PDF file`);
+      try {
+        const pdfBuffer = fs.readFileSync(filePath);
+        console.log(`📄 PDF buffer size: ${pdfBuffer.length} bytes`);
+        
+        if (pdfBuffer.length === 0) {
+          throw new Error('PDF file is empty');
+        }
+        
+        // Dynamic import to avoid startup issues with pdf-parse
+        const pdfParse = (await import('pdf-parse')).default;
+        const pdfDataResult = await pdfParse(pdfBuffer);
+        
+        if (!pdfDataResult || !pdfDataResult.text) {
+          throw new Error('PDF parsing returned no text content');
+        }
+        
+        console.log(`✅ PDF parsed, text length: ${pdfDataResult.text.length} characters`);
+        
+        if (pdfDataResult.text.length === 0) {
+          return '[PDF file contains no readable text content]';
+        }
+        
+        return pdfDataResult.text;
+      } catch (pdfError) {
+        console.error(`❌ PDF parsing failed: ${pdfError.message}`);
+        console.error(`❌ PDF error stack: ${pdfError.stack}`);
+        
+        // Return a more helpful error message
+        if (pdfError.message.includes('Invalid PDF')) {
+          throw new Error('Invalid PDF file format. Please ensure the file is a valid PDF.');
+        } else if (pdfError.message.includes('encrypted')) {
+          throw new Error('PDF file is encrypted or password-protected. Please upload an unprotected PDF.');
+        } else {
+          throw new Error(`Failed to parse PDF: ${pdfError.message}`);
+        }
+      }
+    } else if (mimetype.includes('word') || mimetype.includes('excel')) {
+      console.log(`📄 Office document detected (not implemented)`);
+      // For Office documents, return placeholder - you might want to add mammoth or xlsx libraries
+      return '[Office document content - Office document parsing not implemented yet]';
+    } else {
+      console.log(`📄 Reading as generic text file`);
+      const content = fs.readFileSync(filePath, 'utf8');
+      console.log(`✅ Generic content read, length: ${content.length} characters`);
+      return content;
+    }
+  } catch (error) {
+    console.error(`❌ Failed to read file content: ${error.message}`);
+    console.error(`❌ File path: ${filePath}`);
+    console.error(`❌ MIME type: ${mimetype}`);
+    throw new Error(`Failed to read file content: ${error.message}`);
+  }
+};
 
 // Usage tracking
 const usageStats = {
@@ -188,7 +362,7 @@ const providerHandlers = {
       const completion = await openai.chat.completions.create({
         messages: [{ role: "user", content: message }],
         model: modelName,
-        max_tokens: 1000,
+        max_tokens: message.includes('File Content:') ? 2000 : 1000,
         temperature: 0.7,
       });
       
@@ -230,7 +404,7 @@ const providerHandlers = {
 
       const msg = await anthropic.messages.create({
         model: modelName,
-        max_tokens: 1000,
+        max_tokens: message.includes('File Content:') ? 2000 : 1000,
         messages: [{ role: "user", content: message }],
       });
       
@@ -362,13 +536,74 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
+    // Get conversation memory (previous chat history)
+    console.log('🧠 Retrieving conversation memory...');
+    const recentHistory = await ChatHistory.find({ sessionId: currentSessionId })
+      .sort({ timestamp: -1 })
+      .limit(10) // Get last 10 exchanges
+      .select('userMessage aiResponse timestamp');
+    
+    // Get uploaded files context
+    console.log('📁 Retrieving uploaded files context...');
+    const uploadedFiles = await FileUpload.find({ sessionId: currentSessionId })
+      .sort({ uploadedAt: -1 })
+      .limit(5) // Get last 5 uploaded files
+      .select('originalName content analysisPrompts uploadedAt');
+
+    // Build context for the AI
+    let contextualMessage = message;
+    let conversationContext = '';
+    let fileContext = '';
+
+    // Add conversation history context
+    if (recentHistory.length > 0) {
+      conversationContext = '\n\n--- Previous Conversation Context ---\n';
+      // Reverse to show chronological order (oldest first)
+      recentHistory.reverse().forEach((chat, index) => {
+        conversationContext += `[${index + 1}] User: ${chat.userMessage}\n`;
+        conversationContext += `[${index + 1}] Assistant: ${chat.aiResponse.substring(0, 200)}${chat.aiResponse.length > 200 ? '...' : ''}\n\n`;
+      });
+      conversationContext += '--- End of Previous Context ---\n\n';
+      console.log(`🧠 Added context from ${recentHistory.length} previous exchanges`);
+    }
+
+    // Add file context
+    if (uploadedFiles.length > 0) {
+      fileContext = '\n\n--- Available Files Context ---\n';
+      uploadedFiles.forEach((file, index) => {
+        fileContext += `File ${index + 1}: "${file.originalName}" (uploaded ${new Date(file.uploadedAt).toLocaleDateString()})\n`;
+        
+        // Add file content preview (first 500 characters)
+        if (file.content) {
+          fileContext += `Content preview: ${file.content.substring(0, 500)}${file.content.length > 500 ? '...' : ''}\n`;
+        }
+        
+        // Add previous analysis if any
+        if (file.analysisPrompts && file.analysisPrompts.length > 0) {
+          fileContext += `Previous analyses: ${file.analysisPrompts.length} analysis(es) performed\n`;
+          const lastAnalysis = file.analysisPrompts[file.analysisPrompts.length - 1];
+          fileContext += `Last analysis: "${lastAnalysis.prompt}" - ${lastAnalysis.response.substring(0, 200)}${lastAnalysis.response.length > 200 ? '...' : ''}\n`;
+        }
+        fileContext += '\n';
+      });
+      fileContext += '--- End of Files Context ---\n\n';
+      console.log(`📁 Added context from ${uploadedFiles.length} uploaded files`);
+    }
+
+    // Combine contexts with the current message
+    if (conversationContext || fileContext) {
+      contextualMessage = `${conversationContext}${fileContext}Current user message: ${message}
+
+Please respond to the current user message while being aware of our previous conversation and any uploaded files. If the user refers to previous messages or files, use the provided context to give a relevant response.`;
+    }
+
     const handler = providerHandlers[provider];
-    const result = await handler(message, model);
+    const result = await handler(contextualMessage, model);
     
     const totalTime = Date.now() - requestStart;
     console.log(`✅ Request completed in ${totalTime}ms | Model: ${result.actualModel} | Provider: ${result.provider.toUpperCase()}\n`);
     
-    // Save to database
+    // Save to database (save original message, not the contextual one)
     await saveChatHistory(currentSessionId, message, result.response, result.actualModel, result.provider, totalTime, result.status, req);
     
     res.json({
@@ -377,7 +612,13 @@ app.post('/api/chat', async (req, res) => {
       provider: result.provider,
       status: result.status,
       sessionId: currentSessionId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      contextUsed: {
+        conversationHistory: recentHistory.length > 0,
+        uploadedFiles: uploadedFiles.length > 0,
+        historyCount: recentHistory.length,
+        filesCount: uploadedFiles.length
+      }
     });
   } catch (err) {
     const totalTime = Date.now() - requestStart;
@@ -553,6 +794,302 @@ app.delete('/api/history/:sessionId', async (req, res) => {
   } catch (error) {
     console.error('❌ Error deleting chat history:', error.message);
     res.status(500).json({ error: 'Failed to delete chat history', message: error.message });
+  }
+});
+
+// File upload endpoint
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { sessionId } = req.body;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Session ID is required' });
+    }
+
+    const filePath = req.file.path;
+    console.log(`📁 Processing file upload: ${req.file.originalname}`);
+    console.log(`📂 File path: ${filePath}`);
+    console.log(`📊 File size: ${req.file.size} bytes`);
+    console.log(`🔍 MIME type: ${req.file.mimetype}`);
+
+    // Check if file exists before trying to read it
+    if (!fs.existsSync(filePath)) {
+      console.error(`❌ File does not exist at path: ${filePath}`);
+      return res.status(500).json({ error: 'Uploaded file not found on server' });
+    }
+
+    let fileContent;
+    try {
+      fileContent = await readFileContent(filePath, req.file.mimetype);
+      console.log(`✅ File content read successfully, length: ${fileContent.length} characters`);
+    } catch (readError) {
+      console.error(`❌ Failed to read file content: ${readError.message}`);
+      // Clean up the uploaded file even if reading failed
+      try {
+        fs.unlinkSync(filePath);
+      } catch (cleanupError) {
+        console.error(`❌ Failed to cleanup file: ${cleanupError.message}`);
+      }
+      return res.status(500).json({ 
+        error: 'Failed to process file content', 
+        message: readError.message 
+      });
+    }
+
+    // Save file info to database
+    const fileUpload = new FileUpload({
+      sessionId,
+      originalName: req.file.originalname,
+      filename: req.file.filename,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      content: fileContent
+    });
+
+    await fileUpload.save();
+    console.log(`💾 File saved to database with ID: ${fileUpload._id}`);
+
+    // Clean up uploaded file (we've stored content in DB)
+    try {
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ Temporary file cleaned up: ${filePath}`);
+    } catch (cleanupError) {
+      console.error(`⚠️ Failed to cleanup temporary file: ${cleanupError.message}`);
+      // Don't fail the request if cleanup fails
+    }
+
+    console.log(`📁 File uploaded successfully: ${req.file.originalname} | Session: ${sessionId} | Size: ${req.file.size} bytes`);
+
+    res.json({
+      message: 'File uploaded successfully',
+      fileId: fileUpload._id,
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      sessionId,
+      uploadedAt: fileUpload.uploadedAt
+    });
+  } catch (error) {
+    console.error('❌ Error uploading file:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Try to cleanup the uploaded file if it exists
+    if (req.file && req.file.path) {
+      try {
+        if (fs.existsSync(req.file.path)) {
+          fs.unlinkSync(req.file.path);
+          console.log(`🗑️ Cleaned up file after error: ${req.file.path}`);
+        }
+      } catch (cleanupError) {
+        console.error(`❌ Failed to cleanup file after error: ${cleanupError.message}`);
+      }
+    }
+    
+    res.status(500).json({ error: 'Failed to upload file', message: error.message });
+  }
+});
+
+// Get uploaded files for a session
+app.get('/api/files/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const files = await FileUpload.find({ sessionId })
+      .sort({ uploadedAt: -1 })
+      .select('originalName filename mimetype size uploadedAt analysisPrompts');
+
+    res.json({
+      sessionId,
+      files
+    });
+  } catch (error) {
+    console.error('❌ Error fetching files:', error.message);
+    res.status(500).json({ error: 'Failed to fetch files', message: error.message });
+  }
+});
+
+// Analyze file with AI
+app.post('/api/analyze-file', async (req, res) => {
+  try {
+    console.log('\n🔍 ANALYZE FILE REQUEST');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    const { fileId, prompt, model, provider } = req.body;
+
+    console.log(`📄 File ID: ${fileId}`);
+    console.log(`💭 Prompt: ${prompt?.substring(0, 100)}${prompt?.length > 100 ? '...' : ''}`);
+    console.log(`🎯 Model: ${model}`);
+    console.log(`🏢 Provider: ${provider}`);
+
+    if (!fileId || !prompt || !model || !provider) {
+      console.log('❌ Missing required fields:');
+      console.log(`  - fileId: ${!!fileId}`);
+      console.log(`  - prompt: ${!!prompt}`);
+      console.log(`  - model: ${!!model}`);
+      console.log(`  - provider: ${!!provider}`);
+      return res.status(400).json({ 
+        error: 'File ID, prompt, model, and provider are required',
+        received: { fileId: !!fileId, prompt: !!prompt, model: !!model, provider: !!provider }
+      });
+    }
+
+    // Get file from database
+    console.log(`🔍 Looking for file with ID: ${fileId}`);
+    const file = await FileUpload.findById(fileId);
+    if (!file) {
+      console.log('❌ File not found in database');
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    console.log(`✅ File found: ${file.originalName}`);
+
+    // Get conversation context for better analysis
+    console.log('🧠 Retrieving conversation context for analysis...');
+    const recentHistory = await ChatHistory.find({ sessionId: file.sessionId })
+      .sort({ timestamp: -1 })
+      .limit(5) // Get last 5 exchanges for context
+      .select('userMessage aiResponse timestamp');
+
+    // Get other files in the session for context
+    const otherFiles = await FileUpload.find({ 
+      sessionId: file.sessionId, 
+      _id: { $ne: fileId } 
+    })
+      .sort({ uploadedAt: -1 })
+      .limit(3)
+      .select('originalName analysisPrompts uploadedAt');
+
+    // Build conversation context
+    let conversationContext = '';
+    if (recentHistory.length > 0) {
+      conversationContext = '\n\n--- Recent Conversation Context ---\n';
+      recentHistory.reverse().forEach((chat, index) => {
+        conversationContext += `[${index + 1}] User: ${chat.userMessage.substring(0, 150)}${chat.userMessage.length > 150 ? '...' : ''}\n`;
+        conversationContext += `[${index + 1}] Assistant: ${chat.aiResponse.substring(0, 150)}${chat.aiResponse.length > 150 ? '...' : ''}\n\n`;
+      });
+      conversationContext += '--- End of Context ---\n\n';
+      console.log(`🧠 Added context from ${recentHistory.length} recent exchanges`);
+    }
+
+    // Build other files context
+    let otherFilesContext = '';
+    if (otherFiles.length > 0) {
+      otherFilesContext = '\n\n--- Other Files in Session ---\n';
+      otherFiles.forEach((otherFile, index) => {
+        otherFilesContext += `File ${index + 1}: "${otherFile.originalName}" (uploaded ${new Date(otherFile.uploadedAt).toLocaleDateString()})\n`;
+        if (otherFile.analysisPrompts && otherFile.analysisPrompts.length > 0) {
+          const lastAnalysis = otherFile.analysisPrompts[otherFile.analysisPrompts.length - 1];
+          otherFilesContext += `  Last analysis: "${lastAnalysis.prompt}"\n`;
+        }
+      });
+      otherFilesContext += '--- End of Other Files ---\n\n';
+      console.log(`📁 Added context from ${otherFiles.length} other files`);
+    }
+
+    // Create analysis prompt with file content and context
+    const fileInfo = `File Name: ${file.originalName}\nFile Type: ${file.mimetype}\nFile Size: ${file.size} bytes\n`;
+    const contentPreview = file.content.length > 8000 ? 
+      file.content.substring(0, 8000) + '\n\n[Content truncated - showing first 8,000 characters]' : 
+      file.content;
+    
+    const analysisMessage = `${conversationContext}${otherFilesContext}Please analyze the following file based on this request: "${prompt}"\n\n${fileInfo}\nFile Content:\n${contentPreview}
+
+Please provide a comprehensive analysis while being aware of our conversation context and any other files in this session. If relevant, reference previous discussions or other files.`;
+
+    // Use existing provider handlers
+    const handler = providerHandlers[provider];
+    if (!handler) {
+      console.log(`❌ Unsupported provider: ${provider}`);
+      return res.status(400).json({ error: `Unsupported provider: ${provider}` });
+    }
+
+    console.log(`🚀 Starting analysis with ${provider}/${model}`);
+    const startTime = Date.now();
+    const result = await handler(analysisMessage, model);
+    const responseTime = Date.now() - startTime;
+
+    console.log(`✅ Analysis completed in ${responseTime}ms`);
+
+    // Save analysis to file record
+    file.analysisPrompts.push({
+      prompt,
+      response: result.response,
+      model: result.actualModel,
+      provider: result.provider
+    });
+    await file.save();
+
+    console.log(`💾 Analysis saved to file record`);
+    console.log(`🔍 File analyzed: ${file.originalName} | Model: ${result.actualModel} | Time: ${responseTime}ms`);
+
+    res.json({
+      response: result.response,
+      model: result.actualModel,
+      provider: result.provider,
+      status: result.status,
+      fileId,
+      fileName: file.originalName,
+      analysisId: file.analysisPrompts[file.analysisPrompts.length - 1]._id,
+      timestamp: new Date().toISOString(),
+      contextUsed: {
+        conversationHistory: recentHistory.length > 0,
+        otherFiles: otherFiles.length > 0,
+        historyCount: recentHistory.length,
+        otherFilesCount: otherFiles.length
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error analyzing file:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ error: 'Failed to analyze file', message: error.message });
+  }
+});
+
+// Get file analysis history
+app.get('/api/file-analysis/:fileId', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const file = await FileUpload.findById(fileId)
+      .select('originalName analysisPrompts uploadedAt');
+
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.json({
+      fileId,
+      fileName: file.originalName,
+      uploadedAt: file.uploadedAt,
+      analyses: file.analysisPrompts
+    });
+  } catch (error) {
+    console.error('❌ Error fetching file analysis:', error.message);
+    res.status(500).json({ error: 'Failed to fetch file analysis', message: error.message });
+  }
+});
+
+// Delete uploaded file
+app.delete('/api/files/:fileId', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const result = await FileUpload.findByIdAndDelete(fileId);
+
+    if (!result) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    console.log(`🗑️  Deleted file: ${result.originalName} | ID: ${fileId}`);
+
+    res.json({
+      message: 'File deleted successfully',
+      fileName: result.originalName,
+      fileId
+    });
+  } catch (error) {
+    console.error('❌ Error deleting file:', error.message);
+    res.status(500).json({ error: 'Failed to delete file', message: error.message });
   }
 });
 
