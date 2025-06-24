@@ -14,6 +14,15 @@ function App() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const messagesEndRef = useRef(null);
 
+  // File upload states
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showFilePanel, setShowFilePanel] = useState(false);
+  const [analysisPrompt, setAnalysisPrompt] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedFileForAnalysis, setSelectedFileForAnalysis] = useState(null);
+
   const agents = [
     // Google Models
     {
@@ -297,6 +306,7 @@ function App() {
           actualModel: data.model,
           provider: data.provider,
           status: data.status,
+          contextUsed: data.contextUsed,
           timestamp: new Date().toLocaleTimeString()
         };
         setMessages(prev => [...prev, aiMessage]);
@@ -329,6 +339,165 @@ function App() {
     });
     return groups;
   };
+
+  // File upload functions
+  const loadUploadedFiles = async () => {
+    if (!sessionId) return;
+    
+    try {
+      const response = await fetch(`http://localhost:5000/api/files/${sessionId}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setUploadedFiles(data.files || []);
+      }
+    } catch (error) {
+      console.error('Failed to load uploaded files:', error);
+    }
+  };
+
+  const handleFileUpload = async (file) => {
+    if (!sessionId) return;
+    
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('sessionId', sessionId);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setUploadedFiles(prev => [data, ...prev]);
+        setSelectedFile(null);
+        
+        // Add a message to chat about the upload
+        const uploadMessage = {
+          id: `upload_${Date.now()}`,
+          text: `📁 Uploaded file: ${data.originalName} (${Math.round(data.size / 1024)}KB)`,
+          sender: 'user',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, uploadMessage]);
+      } else {
+        alert(`Upload failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileAnalysis = async () => {
+    console.log('🔍 Starting file analysis...');
+    console.log('selectedFileForAnalysis:', selectedFileForAnalysis);
+    console.log('analysisPrompt:', analysisPrompt);
+    console.log('selectedAgent:', selectedAgent);
+    console.log('selectedAgentData:', selectedAgentData);
+    
+    if (!selectedFileForAnalysis || !analysisPrompt.trim()) {
+      console.log('❌ Missing required data for analysis');
+      alert('Please select a file and enter an analysis prompt');
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    
+    try {
+      const requestData = {
+        fileId: selectedFileForAnalysis.fileId || selectedFileForAnalysis._id,
+        prompt: analysisPrompt,
+        model: selectedAgent,
+        provider: selectedAgentData.provider
+      };
+      
+      console.log('📤 Sending request data:', requestData);
+      
+      const response = await fetch('http://localhost:5000/api/analyze-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const data = await response.json();
+      console.log('📥 Response data:', data);
+
+      if (response.ok) {
+        // Add user message
+        const userMessage = {
+          id: `user_${Date.now()}`,
+          text: `📄 Analyze "${selectedFileForAnalysis.originalName}": ${analysisPrompt}`,
+          sender: 'user',
+          timestamp: new Date().toLocaleTimeString()
+        };
+
+        // Add AI response
+        const aiMessage = {
+          id: `ai_${Date.now()}`,
+          text: data.response,
+          sender: 'ai',
+          agent: selectedAgentData,
+          actualModel: data.model,
+          provider: data.provider,
+          status: data.status,
+          contextUsed: data.contextUsed,
+          timestamp: new Date().toLocaleTimeString()
+        };
+
+        setMessages(prev => [...prev, userMessage, aiMessage]);
+        setAnalysisPrompt('');
+        setSelectedFileForAnalysis(null);
+        
+        // Reload files to get updated analysis count
+        loadUploadedFiles();
+      } else {
+        console.error('❌ Analysis failed:', data);
+        alert(`Analysis failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('❌ Analysis error:', error);
+      alert('Analysis failed. Please check the console for details.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const deleteFile = async (fileId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/files/${fileId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setUploadedFiles(prev => prev.filter(file => file._id !== fileId));
+      } else {
+        const data = await response.json();
+        alert(`Delete failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Delete failed. Please try again.');
+    }
+  };
+
+  // Load files when session changes
+  useEffect(() => {
+    if (sessionId) {
+      loadUploadedFiles();
+    }
+  }, [sessionId]);
 
   const selectedAgentData = agents.find(agent => agent.id === selectedAgent);
   const statusBadge = getStatusBadge(selectedAgentData);
@@ -372,6 +541,13 @@ function App() {
                 }}
               >
                 📜 History
+              </button>
+              <button 
+                className="file-panel-button"
+                onClick={() => setShowFilePanel(!showFilePanel)}
+                style={{ backgroundColor: showFilePanel ? selectedAgentData.color : '' }}
+              >
+                📁 Files {uploadedFiles.length > 0 && `(${uploadedFiles.length})`}
               </button>
               <button 
                 className="new-session-button"
@@ -506,6 +682,137 @@ function App() {
           </div>
         )}
 
+        {/* File Panel */}
+        {showFilePanel && (
+          <div className="file-panel">
+            <div className="file-panel-header">
+              <h3>File Management</h3>
+              <button 
+                className="close-file-panel"
+                onClick={() => setShowFilePanel(false)}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="file-panel-content">
+              {/* File Upload Section */}
+              <div className="file-upload-section">
+                <h4>Upload File</h4>
+                <div className="file-upload-area">
+                  <input
+                    type="file"
+                    id="file-input"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setSelectedFile(file);
+                        handleFileUpload(file);
+                      }
+                    }}
+                    accept=".txt,.csv,.json,.pdf,.doc,.docx,.xls,.xlsx,.html,.xml,.md"
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="file-input" className="file-upload-label">
+                    {isUploading ? (
+                      <div className="uploading">
+                        <div className="loading-spinner"></div>
+                        <span>Uploading...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="upload-icon">📤</span>
+                        <span>Click to upload file</span>
+                        <small>Supports: TXT, CSV, JSON, PDF, DOC, XLS, HTML, XML, MD</small>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              {/* Uploaded Files List */}
+              <div className="uploaded-files-section">
+                <h4>Uploaded Files ({uploadedFiles.length})</h4>
+                {uploadedFiles.length === 0 ? (
+                  <div className="no-files">
+                    <p>No files uploaded yet.</p>
+                    <p>Upload a file to start analyzing it with AI!</p>
+                  </div>
+                ) : (
+                  <div className="files-list">
+                    {uploadedFiles.map((file) => (
+                      <div key={file._id} className="file-item">
+                        <div className="file-info">
+                          <div className="file-name">{file.originalName}</div>
+                          <div className="file-meta">
+                            {Math.round(file.size / 1024)}KB • {file.mimetype} • 
+                            {new Date(file.uploadedAt).toLocaleDateString()}
+                          </div>
+                          {file.analysisPrompts && file.analysisPrompts.length > 0 && (
+                            <div className="analysis-count">
+                              {file.analysisPrompts.length} analysis{file.analysisPrompts.length > 1 ? 'es' : ''}
+                            </div>
+                          )}
+                        </div>
+                        <div className="file-actions">
+                          <button
+                            className="analyze-button"
+                            onClick={() => setSelectedFileForAnalysis(file)}
+                            style={{ backgroundColor: selectedAgentData.color }}
+                          >
+                            🔍 Analyze
+                          </button>
+                          <button
+                            className="delete-file-button"
+                            onClick={() => deleteFile(file._id)}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* File Analysis Section */}
+              {selectedFileForAnalysis && (
+                <div className="file-analysis-section">
+                  <h4>Analyze: {selectedFileForAnalysis.originalName}</h4>
+                  <div className="analysis-form">
+                    <textarea
+                      value={analysisPrompt}
+                      onChange={(e) => setAnalysisPrompt(e.target.value)}
+                      placeholder="Enter your analysis prompt... (e.g., 'Summarize this document', 'Extract key insights', 'Find errors in this code')"
+                      className="analysis-prompt-input"
+                      rows="3"
+                    />
+                    <div className="analysis-actions">
+                      <button
+                        className="analyze-submit-button"
+                        onClick={handleFileAnalysis}
+                        disabled={isAnalyzing || !analysisPrompt.trim()}
+                        style={{ backgroundColor: selectedAgentData.color }}
+                      >
+                        {isAnalyzing ? '🔄 Analyzing...' : '🚀 Analyze with AI'}
+                      </button>
+                      <button
+                        className="cancel-analysis-button"
+                        onClick={() => {
+                          setSelectedFileForAnalysis(null);
+                          setAnalysisPrompt('');
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Messages */}
         <div className="messages-container">
           {messages.length === 0 && (
@@ -550,6 +857,15 @@ function App() {
                       }}
                     >
                       {message.status.toUpperCase()}
+                    </span>
+                  )}
+                  {message.contextUsed && (message.contextUsed.conversationHistory || message.contextUsed.uploadedFiles) && (
+                    <span 
+                      className="context-indicator"
+                      title={`Used context: ${message.contextUsed.historyCount || 0} previous messages, ${message.contextUsed.filesCount || 0} files`}
+                      style={{ backgroundColor: '#8b5cf6' }}
+                    >
+                      🧠 MEMORY
                     </span>
                   )}
                   <span className="message-time">{message.timestamp}</span>

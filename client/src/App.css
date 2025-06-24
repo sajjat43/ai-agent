@@ -763,4 +763,319 @@ body {
   .delete-session {
     flex: 1;
   }
+}
+
+/* File Upload Styles */
+.file-panel-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: #374151;
+}
+
+.file-panel-button:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.file-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 400px;
+  height: 100vh;
+  background: white;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+.file-panel-header h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.close-file-panel {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.close-file-panel:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.file-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.file-upload-section,
+.uploaded-files-section,
+.file-analysis-section {
+  margin-bottom: 30px;
+}
+
+.file-upload-section h4,
+.uploaded-files-section h4,
+.file-analysis-section h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 15px;
+}
+
+.file-upload-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.file-upload-area:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+}
+
+.file-upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.upload-icon {
+  font-size: 2rem;
+}
+
+.file-upload-label small {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.uploading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6b7280;
+}
+
+.no-files {
+  text-align: center;
+  padding: 30px;
+  color: #6b7280;
+}
+
+.no-files p {
+  margin-bottom: 8px;
+}
+
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.file-info {
+  flex: 1;
+}
+
+.file-name {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.file-meta {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.analysis-count {
+  font-size: 0.8rem;
+  color: #059669;
+  font-weight: 500;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.analyze-button,
+.delete-file-button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.analyze-button {
+  color: white;
+}
+
+.analyze-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.delete-file-button {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.delete-file-button:hover {
+  background: #fecaca;
+}
+
+.analysis-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.analysis-prompt-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.analysis-prompt-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.analysis-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.analyze-submit-button,
+.cancel-analysis-button {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.analyze-submit-button {
+  color: white;
+  flex: 1;
+}
+
+.analyze-submit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.analyze-submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-analysis-button {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.cancel-analysis-button:hover {
+  background: #e5e7eb;
+}
+
+@media (max-width: 768px) {
+  .file-panel {
+    width: 100%;
+    left: 0;
+  }
+  
+  .file-panel-content {
+    padding: 15px;
+  }
+  
+  .file-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .file-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Context indicator styles */
+.context-indicator {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  margin-left: 4px;
+  cursor: help;
+  user-select: none;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.context-indicator:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+  transition: all 0.2s ease;
 } 
