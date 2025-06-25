@@ -126,6 +126,13 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
+.selector-button.active {
+  background: #f0f9ff;
+  border-color: inherit;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
 .selector-dropdown {
   position: absolute;
   top: 100%;
@@ -1078,4 +1085,293 @@ body {
   opacity: 0.8;
   transform: scale(1.05);
   transition: all 0.2s ease;
+}
+
+/* Formatted AI Response Styles */
+.formatted-response {
+  line-height: 1.6;
+}
+
+.formatted-response > div {
+  margin-bottom: 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.formatted-response > div:last-child {
+  margin-bottom: 0;
+}
+
+/* Handle empty lines for paragraph breaks */
+.formatted-response > div:empty {
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+/* Better spacing for responses with multiple paragraphs */
+.formatted-response > div + div {
+  margin-top: 2px;
+}
+
+/* Style for lines that look like lists */
+.formatted-response > div:matches('^[0-9]+\.') {
+  margin-left: 16px;
+  text-indent: -16px;
+}
+
+.formatted-response > div:matches('^[-•*]') {
+  margin-left: 16px;
+  text-indent: -16px;
+}
+
+/* Improve readability for long responses */
+.message.ai .formatted-response {
+  max-width: 100%;
+  hyphens: auto;
+}
+
+/* Better handling of code-like content */
+.formatted-response > div:matches('```') {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 8px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  margin: 8px 0;
+  border-left: 3px solid #e2e8f0;
+}
+
+/* Style for headers in responses */
+.formatted-response > div:matches('^#{1,6}') {
+  font-weight: 600;
+  margin: 12px 0 8px 0;
+  color: #374151;
+}
+
+/* Preserve spacing in formatted text */
+.formatted-response {
+  white-space: pre-wrap;
+}
+
+/* Specific styling for different content types */
+.list-item {
+  margin-left: 20px;
+  text-indent: -20px;
+  margin-bottom: 4px;
+}
+
+.list-item.numbered {
+  color: #374151;
+}
+
+.list-item.bullet {
+  color: #374151;
+}
+
+.header-line {
+  font-weight: 600;
+  font-size: 1.1em;
+  margin: 16px 0 8px 0;
+  color: #1a202c;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px;
+}
+
+.code-block {
+  background: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'Courier New', 'Monaco', monospace;
+  font-size: 0.9em;
+  margin: 8px 0;
+  border-left: 4px solid #3b82f6;
+  overflow-x: auto;
+}
+
+.text-line {
+  margin-bottom: 2px;
+}
+
+.empty-line {
+  height: 8px;
+  margin: 4px 0;
+}
+
+/* Better line spacing for readability */
+.formatted-response div {
+  line-height: 1.5;
+}
+
+/* Handle long URLs and text */
+.formatted-response div {
+  word-break: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* Fix for long single-line responses */
+.message-text {
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+/* Ensure proper text wrapping for all message content */
+.message-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Override any nowrap settings */
+.formatted-response, 
+.formatted-response div,
+.text-line {
+  white-space: pre-wrap !important;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Enhanced formatting for structured data */
+.table-row {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 8px 0;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 2px 0;
+}
+
+.table-row:first-of-type {
+  border-top: 1px solid #e5e7eb;
+  font-weight: 600;
+  background: #f9fafb;
+  padding: 10px 0;
+  border-radius: 6px 6px 0 0;
+}
+
+.table-cell {
+  flex: 1;
+  min-width: 100px;
+  padding: 4px 8px;
+  font-size: 0.9em;
+  word-break: break-word;
+}
+
+.table-separator {
+  display: none;
+}
+
+.section-header {
+  font-weight: 600;
+  font-size: 1.1em;
+  color: #1e40af;
+  margin: 16px 0 8px 0;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #e0e7ff;
+}
+
+.key-value-pair {
+  display: flex;
+  margin: 6px 0;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+}
+
+.key-value-pair .key {
+  font-weight: 600;
+  color: #374151;
+  min-width: 120px;
+  margin-right: 12px;
+}
+
+.key-value-pair .value {
+  color: #6b7280;
+  flex: 1;
+}
+
+.data-line {
+  font-family: 'Courier New', 'Monaco', monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin: 4px 0;
+  border-left: 3px solid #64748b;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.formatted-response .table-row:nth-child(even) {
+  background: #f8fafc;
+}
+
+.formatted-response .table-row:hover {
+  background: #e0f2fe;
+  transition: background 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .table-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .table-cell {
+    min-width: auto;
+    padding: 2px 4px;
+  }
+  
+  .key-value-pair {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .key-value-pair .key {
+    min-width: auto;
+    margin-right: 0;
+  }
+  
+  .data-line {
+    font-size: 0.8em;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+}
+
+/* Critical fix for text wrapping - prevent horizontal scroll */
+.message .message-content,
+.message .message-text,
+.message .formatted-response,
+.message .formatted-response div,
+.message .text-line {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+  overflow-x: visible !important;
+  hyphens: auto;
+}
+
+/* Additional fix for very long responses */
+.formatted-response .text-line {
+  display: block;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Ensure user messages also wrap properly */
+.message.user .message-content {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 } 

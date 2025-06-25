@@ -1021,8 +1021,23 @@ Please provide a comprehensive analysis while being aware of our conversation co
     });
     await file.save();
 
-    console.log(`💾 Analysis saved to file record`);
-    console.log(`🔍 File analyzed: ${file.originalName} | Model: ${result.actualModel} | Time: ${responseTime}ms`);
+    // Save to chat history as well
+    const userMessage = `📄 Analyze "${file.originalName}": ${prompt}`;
+    const aiResponse = result.response;
+    
+    console.log(`💾 Saving file analysis to chat history...`);
+    await saveChatHistory(
+      file.sessionId, 
+      userMessage, 
+      aiResponse, 
+      result.actualModel, 
+      result.provider, 
+      responseTime, 
+      result.status, 
+      req
+    );
+
+    console.log(`💾 Analysis saved to file record and chat history`);
 
     res.json({
       response: result.response,

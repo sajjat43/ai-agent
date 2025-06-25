@@ -136,6 +136,31 @@ function App() {
     }
   }, []);
 
+  // Handle clicking outside the agent selector
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showAgentSelector && !event.target.closest('.agent-selector')) {
+        setShowAgentSelector(false);
+      }
+    };
+
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape' && showAgentSelector) {
+        setShowAgentSelector(false);
+      }
+    };
+
+    if (showAgentSelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [showAgentSelector]);
+
   // Load chat history for a session
   const loadChatHistory = async (sessionId) => {
     try {
@@ -462,6 +487,9 @@ function App() {
         
         // Reload files to get updated analysis count
         loadUploadedFiles();
+        
+        // Reload chat history to ensure persistence
+        await loadChatHistory(sessionId);
       } else {
         console.error('❌ Analysis failed:', data);
         alert(`Analysis failed: ${data.error || 'Unknown error'}`);
@@ -560,13 +588,21 @@ function App() {
             {/* Agent Selector */}
             <div className="agent-selector">
               <button 
-                className="selector-button"
+                className={`selector-button ${showAgentSelector ? 'active' : ''}`}
                 onClick={() => setShowAgentSelector(!showAgentSelector)}
                 style={{ borderColor: selectedAgentData.color }}
               >
                 <span className="selector-icon">{selectedAgentData.icon}</span>
                 <span className="selector-text">Switch Model</span>
-                <span className="selector-arrow">▼</span>
+                <span 
+                  className="selector-arrow"
+                  style={{ 
+                    transform: showAgentSelector ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease'
+                  }}
+                >
+                  ▼
+                </span>
               </button>
               
               {showAgentSelector && (
@@ -872,7 +908,84 @@ function App() {
                 </div>
               )}
               <div className="message-content">
-                <div className="message-text">{message.text}</div>
+                <div className="message-text">
+                  {message.sender === 'ai' ? (
+                    <div className="formatted-response">
+                      {message.text.split('\n').map((line, index) => {
+                        // Handle empty lines
+                        if (line.trim() === '') {
+                          return <div key={index} className="empty-line"></div>;
+                        }
+                        
+                        // Handle table headers (lines with | at start and end)
+                        if (line.trim().startsWith('|') && line.trim().endsWith('|') && line.includes('---')) {
+                          return <div key={index} className="table-separator"></div>;
+                        }
+                        
+                        // Handle table rows
+                        if (line.trim().startsWith('|') && line.trim().endsWith('|') && !line.includes('---')) {
+                          const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell !== '');
+                          return (
+                            <div key={index} className="table-row">
+                              {cells.map((cell, cellIndex) => (
+                                <div key={cellIndex} className="table-cell">{cell}</div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        
+                        // Handle numbered lists
+                        if (/^\d+\.\s/.test(line)) {
+                          return <div key={index} className="list-item numbered">{line}</div>;
+                        }
+                        
+                        // Handle bullet points
+                        if (/^[-•*]\s/.test(line)) {
+                          return <div key={index} className="list-item bullet">{line}</div>;
+                        }
+                        
+                        // Handle headers (bold text with **)
+                        if (line.includes('**') && line.trim().startsWith('**') && line.trim().endsWith('**')) {
+                          const headerText = line.replace(/\*\*/g, '');
+                          return <div key={index} className="header-line">{headerText}</div>;
+                        }
+                        
+                        // Handle section headers (lines that end with :)
+                        if (line.trim().endsWith(':') && line.length < 50 && !line.includes('http')) {
+                          return <div key={index} className="section-header">{line}</div>;
+                        }
+                        
+                        // Handle code blocks
+                        if (line.trim().startsWith('```')) {
+                          return <div key={index} className="code-block">{line}</div>;
+                        }
+                        
+                        // Handle key-value pairs (lines with : but not URLs)
+                        if (line.includes(':') && !line.includes('http') && line.split(':').length === 2) {
+                          const [key, value] = line.split(':');
+                          if (key.trim().length < 30 && value.trim()) {
+                            return (
+                              <div key={index} className="key-value-pair">
+                                <span className="key">{key.trim()}:</span>
+                                <span className="value">{value.trim()}</span>
+                              </div>
+                            );
+                          }
+                        }
+                        
+                        // Handle lines that look like data entries (contain multiple commas or pipes)
+                        if ((line.includes(',') && line.split(',').length > 3) || (line.includes('|') && line.split('|').length > 2)) {
+                          return <div key={index} className="data-line">{line}</div>;
+                        }
+                        
+                        // Regular text
+                        return <div key={index} className="text-line">{line}</div>;
+                      })}
+                    </div>
+                  ) : (
+                    message.text
+                  )}
+                </div>
                 {message.sender === 'user' && (
                   <span className="message-time">{message.timestamp}</span>
                 )}
