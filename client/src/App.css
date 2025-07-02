@@ -219,8 +219,10 @@ body {
 .messages-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   background: #f8fafc;
+  word-wrap: break-word;
 }
 
 .welcome-screen {
@@ -334,6 +336,10 @@ body {
 .message-content {
   max-width: 70%;
   position: relative;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-x: hidden;
 }
 
 .message.user .message-content {
@@ -356,6 +362,10 @@ body {
 .message-text {
   line-height: 1.5;
   word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .message.user .message-time {
@@ -1078,4 +1088,215 @@ body {
   opacity: 0.8;
   transform: scale(1.05);
   transition: all 0.2s ease;
+}
+
+/* Enhanced text formatting */
+.formatted-response {
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.formatted-response > div {
+  margin-bottom: 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.text-line {
+  margin-bottom: 2px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.code-block {
+  background: #f8f9fa;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'Courier New', 'Monaco', monospace;
+  font-size: 0.9em;
+  margin: 8px 0;
+  border-left: 4px solid #3b82f6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+/* Fix for JSON and structured data */
+.data-line {
+  font-family: 'Courier New', 'Monaco', monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin: 4px 0;
+  border-left: 3px solid #64748b;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Force all elements to respect container width */
+.message *,
+.formatted-response *,
+.message-content * {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Special handling for very long strings */
+.message pre,
+.message code {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Enhanced formatting for structured data */
+.empty-line {
+  height: 12px;
+  margin: 6px 0;
+}
+
+.list-item {
+  margin: 6px 0 6px 20px;
+  text-indent: -20px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.list-item.numbered {
+  color: #374151;
+  font-weight: 500;
+}
+
+.list-item.bullet {
+  color: #374151;
+}
+
+.header-line {
+  font-weight: 600;
+  font-size: 1.1em;
+  margin: 16px 0 8px 0;
+  color: #1e40af;
+  border-bottom: 1px solid #e0e7ff;
+  padding-bottom: 4px;
+}
+
+.section-header {
+  font-weight: 600;
+  font-size: 1.05em;
+  color: #1e40af;
+  margin: 12px 0 6px 0;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #e0e7ff;
+}
+
+.key-value-pair {
+  display: flex;
+  margin: 6px 0;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 6px;
+  border-left: 3px solid #3b82f6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.key-value-pair .key {
+  font-weight: 600;
+  color: #374151;
+  min-width: 120px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.key-value-pair .value {
+  color: #6b7280;
+  flex: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Table styling */
+.table-row {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 8px 0;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 2px 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.table-row:first-of-type {
+  border-top: 1px solid #e5e7eb;
+  font-weight: 600;
+  background: #f9fafb;
+  padding: 10px 0;
+  border-radius: 6px 6px 0 0;
+}
+
+.table-cell {
+  flex: 1;
+  min-width: 100px;
+  padding: 4px 8px;
+  font-size: 0.9em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.table-separator {
+  display: none;
+}
+
+/* Mobile responsiveness improvements */
+@media (max-width: 768px) {
+  .message-content {
+    max-width: 95%;
+  }
+  
+  .key-value-pair {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .key-value-pair .key {
+    min-width: auto;
+    margin-right: 0;
+  }
+  
+  .table-row {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .table-cell {
+    min-width: auto;
+    padding: 2px 4px;
+  }
+  
+  .code-block,
+  .data-line {
+    font-size: 0.8em;
+    padding: 6px 8px;
+  }
 } 

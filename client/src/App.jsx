@@ -872,7 +872,123 @@ function App() {
                 </div>
               )}
               <div className="message-content">
-                <div className="message-text">{message.text}</div>
+                <div className="message-text">
+                  {message.sender === 'ai' ? (
+                    <div className="formatted-response">
+                      {message.text.split('\n').map((line, index) => {
+                        // Handle empty lines
+                        if (line.trim() === '') {
+                          return <div key={index} className="empty-line"></div>;
+                        }
+                        
+                        // Handle table headers (lines with | at start and end)
+                        if (line.trim().startsWith('|') && line.trim().endsWith('|') && line.includes('---')) {
+                          return <div key={index} className="table-separator"></div>;
+                        }
+                        
+                        // Handle table rows
+                        if (line.trim().startsWith('|') && line.trim().endsWith('|') && !line.includes('---')) {
+                          const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell !== '');
+                          return (
+                            <div key={index} className="table-row">
+                              {cells.map((cell, cellIndex) => (
+                                <div key={cellIndex} className="table-cell">{cell}</div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        
+                        // Handle JSON-like structures
+                        if (line.trim().startsWith('{') || line.trim().startsWith('[') || line.includes('":')) {
+                          return <div key={index} className="code-block">{line}</div>;
+                        }
+                        
+                        // Handle code blocks
+                        if (line.trim().startsWith('```')) {
+                          return <div key={index} className="code-block">{line}</div>;
+                        }
+                        
+                        // Handle numbered lists
+                        if (/^\d+\.\s/.test(line)) {
+                          return <div key={index} className="list-item numbered">{line}</div>;
+                        }
+                        
+                        // Handle bullet points
+                        if (/^[-•*]\s/.test(line)) {
+                          return <div key={index} className="list-item bullet">{line}</div>;
+                        }
+                        
+                        // Handle headers (bold text with **)
+                        if (line.includes('**') && line.trim().startsWith('**') && line.trim().endsWith('**')) {
+                          const headerText = line.replace(/\*\*/g, '');
+                          return <div key={index} className="header-line">{headerText}</div>;
+                        }
+                        
+                        // Handle section headers (lines that end with :)
+                        if (line.trim().endsWith(':') && line.length < 80 && !line.includes('http')) {
+                          return <div key={index} className="section-header">{line}</div>;
+                        }
+                        
+                        // Handle key-value pairs (lines with : but not URLs)
+                        if (line.includes(':') && !line.includes('http') && line.split(':').length === 2) {
+                          const [key, value] = line.split(':');
+                          if (key.trim().length < 30 && value.trim()) {
+                            return (
+                              <div key={index} className="key-value-pair">
+                                <span className="key">{key.trim()}:</span>
+                                <span className="value">{value.trim()}</span>
+                              </div>
+                            );
+                          }
+                        }
+                        
+                        // Handle lines that look like data entries (contain multiple commas or pipes)
+                        if ((line.includes(',') && line.split(',').length > 3) || (line.includes('|') && line.split('|').length > 2)) {
+                          return <div key={index} className="data-line">{line}</div>;
+                        }
+                        
+                        // Handle very long lines (break them at natural points)
+                        if (line.length > 150) {
+                          // Try to break at sentence boundaries first
+                          if (line.includes('. ')) {
+                            const sentences = line.split('. ');
+                            return (
+                              <div key={index} className="text-line">
+                                {sentences.map((sentence, sentIndex) => (
+                                  <div key={sentIndex}>
+                                    {sentence}{sentIndex < sentences.length - 1 ? '.' : ''}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                          // If no sentences, break at commas
+                          else if (line.includes(', ')) {
+                            const parts = line.split(', ');
+                            return (
+                              <div key={index} className="text-line">
+                                {parts.map((part, partIndex) => (
+                                  <div key={partIndex}>
+                                    {part}{partIndex < parts.length - 1 ? ',' : ''}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+                          // Otherwise treat as code/data
+                          else {
+                            return <div key={index} className="code-block">{line}</div>;
+                          }
+                        }
+                        
+                        // Regular text
+                        return <div key={index} className="text-line">{line}</div>;
+                      })}
+                    </div>
+                  ) : (
+                    <div className="user-message-text">{message.text}</div>
+                  )}
+                </div>
                 {message.sender === 'user' && (
                   <span className="message-time">{message.timestamp}</span>
                 )}
