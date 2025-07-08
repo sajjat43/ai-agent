@@ -12,16 +12,15 @@ function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const messagesEndRef = useRef(null);
-
-  // File upload states
+  const [showFilePanel, setShowFilePanel] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [showFilePanel, setShowFilePanel] = useState(false);
+  const [selectedFileForAnalysis, setSelectedFileForAnalysis] = useState(null);
   const [analysisPrompt, setAnalysisPrompt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [selectedFileForAnalysis, setSelectedFileForAnalysis] = useState(null);
+  const [theme, setTheme] = useState('light');
+  const messagesEndRef = useRef(null);
 
   const agents = [
     // Google Models
@@ -31,8 +30,8 @@ function App() {
       provider: 'google',
       color: '#4285f4',
       icon: '🤖',
-      status: 'LIVE',
-      description: 'Fast and efficient Google AI model'
+      status: 'ACTIVE',
+      description: 'Fast and efficient AI assistant'
     },
     {
       id: 'gemini-1.5-pro',
@@ -40,65 +39,47 @@ function App() {
       provider: 'google',
       color: '#4285f4',
       icon: '🤖',
-      status: 'LIVE',
-      description: 'Advanced Google AI model with enhanced capabilities'
+      status: 'ACTIVE',
+      description: 'Advanced reasoning and analysis'
     },
     
     // OpenAI Models
     {
-      id: 'gpt-4',
-      name: 'GPT-4',
+      id: 'gpt-4o',
+      name: 'GPT-4o',
       provider: 'openai',
       color: '#10a37f',
       icon: '🧠',
-      status: 'LIVE',
-      description: 'Most capable OpenAI model'
+      status: 'ACTIVE',
+      description: 'Latest GPT-4 model'
     },
     {
-      id: 'gpt-4-turbo',
-      name: 'GPT-4 Turbo',
+      id: 'gpt-4o-mini',
+      name: 'GPT-4o Mini',
       provider: 'openai',
       color: '#10a37f',
       icon: '🧠',
-      status: 'LIVE',
-      description: 'Faster and more efficient GPT-4'
-    },
-    {
-      id: 'gpt-3.5-turbo',
-      name: 'GPT-3.5 Turbo',
-      provider: 'openai',
-      color: '#10a37f',
-      icon: '🧠',
-      status: 'LIVE',
-      description: 'Fast and cost-effective OpenAI model'
+      status: 'ACTIVE',
+      description: 'Compact GPT-4 model'
     },
     
     // Anthropic Models
     {
-      id: 'claude-3-opus-20240229',
-      name: 'Claude 3 Opus',
+      id: 'claude-3-5-sonnet-20241022',
+      name: 'Claude 3.5 Sonnet',
       provider: 'anthropic',
-      color: '#cc785c',
+      color: '#d97706',
       icon: '🎭',
-      status: 'LIVE',
-      description: 'Most powerful Claude model'
+      status: 'ACTIVE',
+      description: 'Anthropic\'s most capable model'
     },
     {
-      id: 'claude-3-sonnet-20240229',
-      name: 'Claude 3 Sonnet',
+      id: 'claude-3-5-haiku-20241022',
+      name: 'Claude 3.5 Haiku',
       provider: 'anthropic',
-      color: '#cc785c',
+      color: '#d97706',
       icon: '🎭',
-      status: 'LIVE',
-      description: 'Balanced Claude model'
-    },
-    {
-      id: 'claude-3-haiku-20240307',
-      name: 'Claude 3 Haiku',
-      provider: 'anthropic',
-      color: '#cc785c',
-      icon: '🎭',
-      status: 'LIVE',
+      status: 'ACTIVE',
       description: 'Fast and efficient Claude model'
     },
     
@@ -122,6 +103,21 @@ function App() {
       description: 'Hugging Face conversational model'
     }
   ];
+
+  // Initialize theme
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
+
+  // Toggle theme
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  };
 
   // Generate or get session ID
   useEffect(() => {
@@ -537,123 +533,75 @@ function App() {
         <div className="chat-header">
           <div className="header-content">
             <div className="agent-info">
-              <span className="agent-icon">{selectedAgentData.icon}</span>
+              <div className="agent-icon">{selectedAgentData.icon}</div>
               <div className="agent-details">
                 <h1 className="agent-name">{selectedAgentData.name}</h1>
                 <p className="agent-description">{selectedAgentData.description}</p>
-                {sessionId && (
-                  <div className="session-info">
-                    Session: {sessionId.split('_')[1] ? new Date(parseInt(sessionId.split('_')[1])).toLocaleString() : sessionId}
-                  </div>
-                )}
-              </div>
-              <div className="status-badges">
-                <span 
-                  className="status-badge"
-                  style={{ backgroundColor: statusBadge.color }}
-                >
-                  {statusBadge.text}
-                </span>
-                <span className="provider-badge" style={{ color: selectedAgentData.color }}>
-                  {selectedAgentData.provider.toUpperCase()}
-                </span>
               </div>
             </div>
             
             <div className="header-controls">
               <button 
-                className="history-button"
-                onClick={() => {
-                  setShowHistory(true);
-                  loadSessions();
-                }}
+                className="theme-toggle"
+                onClick={toggleTheme}
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
               >
-                📜 History
-              </button>
-              <button 
-                className="file-panel-button"
-                onClick={() => setShowFilePanel(!showFilePanel)}
-                style={{ backgroundColor: showFilePanel ? selectedAgentData.color : '' }}
-              >
-                📁 Files {uploadedFiles.length > 0 && `(${uploadedFiles.length})`}
-              </button>
-              <button 
-                className="new-session-button"
-                onClick={startNewSession}
-              >
-                🆕 New Session
-              </button>
-            </div>
-            
-            {/* Agent Selector */}
-            <div className="agent-selector">
-              <button 
-                className={`selector-button ${showAgentSelector ? 'active' : ''}`}
-                onClick={() => setShowAgentSelector(!showAgentSelector)}
-                style={{ borderColor: selectedAgentData.color }}
-              >
-                <span className="selector-icon">{selectedAgentData.icon}</span>
-                <span className="selector-text">Switch Model</span>
-                <span 
-                  className="selector-arrow"
-                  style={{ 
-                    transform: showAgentSelector ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.2s ease'
-                  }}
-                >
-                  ▼
-                </span>
+                {theme === 'light' ? '🌙' : '☀️'}
               </button>
               
-              {showAgentSelector && (
-                <div className="selector-dropdown">
-                  {Object.entries(groupedAgents()).map(([provider, providerAgents]) => (
-                    <div key={provider} className="provider-group">
-                      <div className="provider-header">
-                        <span className="provider-name">{provider.toUpperCase()}</span>
-                        {serverStatus && (
+              <button 
+                className="history-button"
+                onClick={() => setShowHistory(!showHistory)}
+              >
+                📚 History
+              </button>
+              
+              <button 
+                className="history-button"
+                onClick={startNewSession}
+              >
+                ➕ New Chat
+              </button>
+              
+              <div className="agent-selector">
+                <button 
+                  className="selector-button"
+                  onClick={() => setShowAgentSelector(!showAgentSelector)}
+                >
+                  <span>{selectedAgentData.icon}</span>
+                  <span>{selectedAgentData.name}</span>
+                  <span>▼</span>
+                </button>
+                
+                {showAgentSelector && (
+                  <div className="selector-dropdown">
+                    {agents.map(agent => (
+                      <button
+                        key={agent.id}
+                        className={`agent-option ${agent.id === selectedAgent ? 'selected' : ''}`}
+                        onClick={() => {
+                          setSelectedAgent(agent.id);
+                          setShowAgentSelector(false);
+                        }}
+                      >
+                        <div className="option-content">
+                          <span>{agent.icon}</span>
+                          <div className="option-details">
+                            <span className="option-name">{agent.name}</span>
+                            <span className="option-description">{agent.description}</span>
+                          </div>
                           <span 
-                            className="provider-status"
-                            style={{ 
-                              color: serverStatus.apiKeys?.[provider] ? '#10b981' : '#f59e0b' 
-                            }}
+                            className="option-status"
+                            style={{ backgroundColor: agent.status === 'ACTIVE' ? '#10a37f' : '#6b7280' }}
                           >
-                            {serverStatus.apiKeys?.[provider] ? '✅' : '🔑'}
+                            {agent.status}
                           </span>
-                        )}
-                      </div>
-                      {providerAgents.map(agent => {
-                        const agentStatus = getStatusBadge(agent);
-                        return (
-                          <button
-                            key={agent.id}
-                            className={`agent-option ${selectedAgent === agent.id ? 'selected' : ''}`}
-                            onClick={() => {
-                              setSelectedAgent(agent.id);
-                              setShowAgentSelector(false);
-                            }}
-                            style={{ borderLeftColor: agent.color }}
-                          >
-                            <div className="option-content">
-                              <span className="option-icon">{agent.icon}</span>
-                              <div className="option-details">
-                                <span className="option-name">{agent.name}</span>
-                                <span className="option-description">{agent.description}</span>
-                              </div>
-                              <span 
-                                className="option-status"
-                                style={{ backgroundColor: agentStatus.color }}
-                              >
-                                {agentStatus.text}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -851,160 +799,57 @@ function App() {
 
         {/* Messages */}
         <div className="messages-container">
-          {messages.length === 0 && (
+          {messages.length === 0 ? (
             <div className="welcome-screen">
               <div className="welcome-content">
-                <h2>🤖 AI Chat Interface</h2>
-                <p>Select an AI model and start chatting!</p>
-                
-                {/* <div className="status-guide">
-                  <h3>Status Guide:</h3>
-                  <div className="status-item">
-                    <span className="status-badge" style={{ backgroundColor: '#10b981' }}>LIVE</span>
-                    <span>Real AI model with API key configured</span>
-                  </div>
-                  <div className="status-item">
-                    <span className="status-badge" style={{ backgroundColor: '#f59e0b' }}>NEEDS_KEY</span>
-                    <span>Model available but requires API key</span>
-                  </div>
-                  <div className="status-item">
-                    <span className="status-badge" style={{ backgroundColor: '#6b7280' }}>COMING_SOON</span>
-                    <span>Integration planned for future release</span>
-                  </div>
-                </div> */}
+                <h2>How can I help you today?</h2>
+                <p>I'm an AI assistant powered by multiple language models. Ask me anything!</p>
               </div>
             </div>
-          )}
-          
-          {messages.map((message) => (
-            <div key={message.id} className={`message ${message.sender}`}>
-              {message.sender === 'ai' && (
-                <div className="message-header">
-                  <span className="message-agent-icon">{message.agent.icon}</span>
-                  <span className="message-agent-name">
-                    {message.actualModel || message.agent.name}
-                  </span>
-                  {message.status && (
-                    <span 
-                      className="message-status"
-                      style={{ 
-                        backgroundColor: message.status === 'success' ? '#10b981' : 
-                                       message.status === 'error' ? '#ef4444' : '#6b7280'
-                      }}
-                    >
-                      {message.status.toUpperCase()}
-                    </span>
-                  )}
-                  {message.contextUsed && (message.contextUsed.conversationHistory || message.contextUsed.uploadedFiles) && (
-                    <span 
-                      className="context-indicator"
-                      title={`Used context: ${message.contextUsed.historyCount || 0} previous messages, ${message.contextUsed.filesCount || 0} files`}
-                      style={{ backgroundColor: '#8b5cf6' }}
-                    >
-                      🧠 MEMORY
-                    </span>
-                  )}
-                  <span className="message-time">{message.timestamp}</span>
-                </div>
-              )}
-              <div className="message-content">
-                <div className="message-text">
-                  {message.sender === 'ai' ? (
-                    <div className="formatted-response">
-                      {message.text.split('\n').map((line, index) => {
-                        // Handle empty lines
-                        if (line.trim() === '') {
-                          return <div key={index} className="empty-line"></div>;
-                        }
-                        
-                        // Handle table headers (lines with | at start and end)
-                        if (line.trim().startsWith('|') && line.trim().endsWith('|') && line.includes('---')) {
-                          return <div key={index} className="table-separator"></div>;
-                        }
-                        
-                        // Handle table rows
-                        if (line.trim().startsWith('|') && line.trim().endsWith('|') && !line.includes('---')) {
-                          const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell !== '');
-                          return (
-                            <div key={index} className="table-row">
-                              {cells.map((cell, cellIndex) => (
-                                <div key={cellIndex} className="table-cell">{cell}</div>
-                              ))}
-                            </div>
-                          );
-                        }
-                        
-                        // Handle numbered lists
-                        if (/^\d+\.\s/.test(line)) {
-                          return <div key={index} className="list-item numbered">{line}</div>;
-                        }
-                        
-                        // Handle bullet points
-                        if (/^[-•*]\s/.test(line)) {
-                          return <div key={index} className="list-item bullet">{line}</div>;
-                        }
-                        
-                        // Handle headers (bold text with **)
-                        if (line.includes('**') && line.trim().startsWith('**') && line.trim().endsWith('**')) {
-                          const headerText = line.replace(/\*\*/g, '');
-                          return <div key={index} className="header-line">{headerText}</div>;
-                        }
-                        
-                        // Handle section headers (lines that end with :)
-                        if (line.trim().endsWith(':') && line.length < 50 && !line.includes('http')) {
-                          return <div key={index} className="section-header">{line}</div>;
-                        }
-                        
-                        // Handle code blocks
-                        if (line.trim().startsWith('```')) {
-                          return <div key={index} className="code-block">{line}</div>;
-                        }
-                        
-                        // Handle key-value pairs (lines with : but not URLs)
-                        if (line.includes(':') && !line.includes('http') && line.split(':').length === 2) {
-                          const [key, value] = line.split(':');
-                          if (key.trim().length < 30 && value.trim()) {
-                            return (
-                              <div key={index} className="key-value-pair">
-                                <span className="key">{key.trim()}:</span>
-                                <span className="value">{value.trim()}</span>
-                              </div>
-                            );
-                          }
-                        }
-                        
-                        // Handle lines that look like data entries (contain multiple commas or pipes)
-                        if ((line.includes(',') && line.split(',').length > 3) || (line.includes('|') && line.split('|').length > 2)) {
-                          return <div key={index} className="data-line">{line}</div>;
-                        }
-                        
-                        // Regular text
-                        return <div key={index} className="text-line">{line}</div>;
-                      })}
+          ) : (
+            messages.map((message) => (
+              <div key={message.id} className={`message ${message.sender}`}>
+                <div className="message-wrapper">
+                  <div className="message-avatar">
+                    {message.sender === 'user' ? '👤' : message.agent?.icon || '🤖'}
+                  </div>
+                  <div className="message-content">
+                    {message.sender === 'ai' && (
+                      <div className="message-header">
+                        <span className="message-agent-name">
+                          {message.agent?.name || 'AI Assistant'}
+                        </span>
+                        <span 
+                          className={`message-status ${message.status || 'success'}`}
+                        >
+                          {message.status === 'loading' ? 'THINKING' : message.status?.toUpperCase() || 'SUCCESS'}
+                        </span>
+                      </div>
+                    )}
+                    <div className="message-text">
+                      {message.text}
                     </div>
-                  ) : (
-                    message.text
-                  )}
+                    <div className="message-time">{message.timestamp}</div>
+                  </div>
                 </div>
-                {message.sender === 'user' && (
-                  <span className="message-time">{message.timestamp}</span>
-                )}
               </div>
-            </div>
-          ))}
+            ))
+          )}
           
           {isLoading && (
             <div className="message ai">
-              <div className="message-header">
-                <span className="message-agent-icon">{selectedAgentData.icon}</span>
-                <span className="message-agent-name">{selectedAgentData.name}</span>
-                <span className="message-status loading">THINKING</span>
-              </div>
-              <div className="message-content">
-                <div className="typing-indicator">
-                  <span></span>
-                  <span></span>
-                  <span></span>
+              <div className="message-wrapper">
+                <div className="message-avatar">{selectedAgentData.icon}</div>
+                <div className="message-content">
+                  <div className="message-header">
+                    <span className="message-agent-name">{selectedAgentData.name}</span>
+                    <span className="message-status loading">THINKING</span>
+                  </div>
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1015,26 +860,30 @@ function App() {
         {/* Input */}
         <form onSubmit={handleSubmit} className="input-form">
           <div className="input-container">
-            <input
-              type="text"
+            <textarea
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder={`Message ${selectedAgentData.name}...`}
               className="message-input"
               disabled={isLoading}
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }
+              }}
             />
             <button 
               type="submit" 
               className="send-button"
               disabled={isLoading || !inputMessage.trim()}
-              style={{ backgroundColor: selectedAgentData.color }}
             >
-              {isLoading ? '⏳' : '➤'}
+              {isLoading ? '⏳' : '↑'}
             </button>
           </div>
           <div className="input-hint">
-            Press Enter to send • Currently using: <strong>{selectedAgentData.name}</strong>
-            {sessionId && <span> • Session: {sessionId.substring(0, 12)}...</span>}
+            Press Enter to send, Shift+Enter for new line • {selectedAgentData.name}
           </div>
         </form>
       </div>

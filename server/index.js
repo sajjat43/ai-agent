@@ -30,13 +30,13 @@ const server = app.listen(PORT, () => {
   console.log('🚀 Server running on port', PORT);
   console.log('📊 Model usage monitoring enabled');
   console.log('📋 Supported providers:', Object.keys(supportedModels));
-  
+
   // Show API key status
   console.log('\n🔑 API Key Status:');
   console.log(`🤖 Google AI: ${process.env.GEMINI_API_KEY ? '✅ Configured' : '❌ Missing'}`);
   console.log(`🧠 OpenAI: ${process.env.OPENAI_API_KEY ? '✅ Configured' : '❌ Missing'}`);
   console.log(`🎭 Anthropic: ${process.env.ANTHROPIC_API_KEY ? '✅ Configured' : '❌ Missing'}`);
-  
+
   console.log('\n📚 Available Models:');
   Object.entries(supportedModels).forEach(([provider, config]) => {
     const icon = provider === 'google' ? '🤖' : 
@@ -45,7 +45,7 @@ const server = app.listen(PORT, () => {
                  provider === 'cohere' ? '🔮' : '🤗';
     console.log(`${icon} ${provider}: ${config.models.join(', ')} (${config.status})`);
   });
-  
+
   console.log('\n📈 Monitoring endpoints:');
   console.log('   GET /api/health - Server health and API status');
   console.log('   GET /api/models - Available models');
