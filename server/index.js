@@ -5,6 +5,7 @@ import connectDB from './src/config/database.js';
 import chatRoutes from './src/routes/chatRoutes.js';
 import fileRoutes from './src/routes/fileRoutes.js';
 import systemRoutes from './src/routes/systemRoutes.js';
+import csvRoutes from './src/routes/csvRoutes.js';
 import { supportedModels } from './src/config/ai-clients.js';
 
 dotenv.config();
@@ -22,6 +23,7 @@ connectDB();
 app.use('/api', chatRoutes);
 app.use('/api', fileRoutes);
 app.use('/api', systemRoutes);
+app.use('/api', csvRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;
@@ -36,12 +38,14 @@ const server = app.listen(PORT, () => {
   console.log(`🤖 Google AI: ${process.env.GEMINI_API_KEY ? '✅ Configured' : '❌ Missing'}`);
   console.log(`🧠 OpenAI: ${process.env.OPENAI_API_KEY ? '✅ Configured' : '❌ Missing'}`);
   console.log(`🎭 Anthropic: ${process.env.ANTHROPIC_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+  console.log(`🦙 Ollama: ✅ Local (no API key required)`);
   
   console.log('\n📚 Available Models:');
   Object.entries(supportedModels).forEach(([provider, config]) => {
     const icon = provider === 'google' ? '🤖' : 
                  provider === 'openai' ? '🧠' : 
                  provider === 'anthropic' ? '🎭' : 
+                 provider === 'ollama' ? '🦙' :
                  provider === 'cohere' ? '🔮' : '🤗';
     console.log(`${icon} ${provider}: ${config.models.join(', ')} (${config.status})`);
   });
@@ -50,6 +54,9 @@ const server = app.listen(PORT, () => {
   console.log('   GET /api/health - Server health and API status');
   console.log('   GET /api/models - Available models');
   console.log('   GET /api/stats - Usage statistics');
+  console.log('\n📊 CSV Processing endpoints:');
+  console.log('   POST /api/csv/process - Process single CSV file');
+  console.log('   POST /api/csv/batch - Batch process multiple CSV files');
   console.log('\n' + '='.repeat(80));
 }).on('error', (err) => {
   if (err && typeof err === 'object' && 'code' in err && err.code === 'EADDRINUSE') {

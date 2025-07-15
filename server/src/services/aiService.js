@@ -1,5 +1,6 @@
 import { genAI, openai, anthropic } from '../config/ai-clients.js';
 import { logModelUsage } from '../utils/logger.js';
+import llmAdapter from './llm-adapter.js';
 
 // Provider handlers
 export const providerHandlers = {
@@ -8,8 +9,7 @@ export const providerHandlers = {
     try {
       if (!process.env.GEMINI_API_KEY) {
         const responseTime = Date.now() - startTime;
-        const error = new Error('Google AI API key not configured');
-        logModelUsage('google', modelName, 'error', responseTime, error);
+        logModelUsage('google', modelName, 'error', responseTime, null);
         return {
           response: `🤖 ${modelName}: Google AI API key not configured. Please add GEMINI_API_KEY to your .env file to use Google models.`,
           actualModel: modelName,
@@ -48,8 +48,7 @@ export const providerHandlers = {
     try {
       if (!process.env.OPENAI_API_KEY) {
         const responseTime = Date.now() - startTime;
-        const error = new Error('OpenAI API key not configured');
-        logModelUsage('openai', modelName, 'error', responseTime, error);
+        logModelUsage('openai', modelName, 'error', responseTime, null);
         return {
           response: `🧠 ${modelName}: OpenAI API key not configured. Please add OPENAI_API_KEY to your .env file to use OpenAI models.`,
           actualModel: modelName,
@@ -91,8 +90,7 @@ export const providerHandlers = {
     try {
       if (!process.env.ANTHROPIC_API_KEY) {
         const responseTime = Date.now() - startTime;
-        const error = new Error('Anthropic API key not configured');
-        logModelUsage('anthropic', modelName, 'error', responseTime, error);
+        logModelUsage('anthropic', modelName, 'error', responseTime, null);
         return {
           response: `🎭 ${modelName}: Anthropic API key not configured. Please add ANTHROPIC_API_KEY to your .env file to use Claude models.`,
           actualModel: modelName,
@@ -128,6 +126,50 @@ export const providerHandlers = {
     }
   },
 
+  ollama: async (message, modelName) => {
+    const startTime = Date.now();
+    try {
+      // Initialize Ollama adapter if not already initialized
+      if (!llmAdapter.getStatus().initialized) {
+        console.log('🦙 Initializing Ollama adapter for first use...');
+        await llmAdapter.initializeModel({
+          modelPath: modelName,
+          batchSize: parseInt(process.env.OLLAMA_BATCH_SIZE || '10'),
+          parameters: {
+            temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0.7'),
+            top_p: parseFloat(process.env.OLLAMA_TOP_P || '0.9'),
+            top_k: parseInt(process.env.OLLAMA_TOP_K || '40'),
+            repeat_penalty: parseFloat(process.env.OLLAMA_REPEAT_PENALTY || '1.1')
+          }
+        });
+      }
+
+      const response = await llmAdapter.generateText(message, {
+        maxTokens: message.includes('File Content:') ? 2000 : 1000,
+        temperature: parseFloat(process.env.OLLAMA_TEMPERATURE || '0.7')
+      });
+      
+      const responseTime = Date.now() - startTime;
+      logModelUsage('ollama', modelName, 'success', responseTime);
+      
+      return {
+        response,
+        actualModel: modelName,
+        provider: 'ollama',
+        status: 'success'
+      };
+    } catch (err) {
+      const responseTime = Date.now() - startTime;
+      logModelUsage('ollama', modelName, 'error', responseTime, err);
+      return {
+        response: `🦙 ${modelName}: Error - ${err.message}. Please ensure Ollama is installed and the model is available.`,
+        actualModel: modelName,
+        provider: 'ollama',
+        status: 'error'
+      };
+    }
+  },
+
   // Add support for other providers
   cohere: async (message, modelName) => {
     const startTime = Date.now();
@@ -152,4 +194,7 @@ export const providerHandlers = {
       status: 'placeholder'
     };
   }
-}; 
+};
+
+// Export the llm adapter for direct use
+export { llmAdapter }; 

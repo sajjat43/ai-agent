@@ -30,6 +30,10 @@ export const supportedModels = {
     models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
     status: process.env.ANTHROPIC_API_KEY ? 'active' : 'needs_key'
   },
+  ollama: {
+    models: ['llama2', 'llama2:7b', 'llama2:13b', 'llama2:70b', 'codellama', 'mistral', 'mixtral', 'neural-chat', 'vicuna'],
+    status: 'active' // Ollama doesn't require API key
+  },
   cohere: {
     models: ['command', 'command-light', 'command-nightly'],
     status: 'placeholder'

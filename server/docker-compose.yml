@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  ai-chat-server:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      # AI API Keys (optional - only needed for cloud providers)
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # Ollama Configuration
+      - OLLAMA_MODEL_PATH=${OLLAMA_MODEL_PATH:-llama2}
+      - OLLAMA_BATCH_SIZE=${OLLAMA_BATCH_SIZE:-10}
+      - OLLAMA_TEMPERATURE=${OLLAMA_TEMPERATURE:-0.7}
+      - OLLAMA_TOP_P=${OLLAMA_TOP_P:-0.9}
+      - OLLAMA_TOP_K=${OLLAMA_TOP_K:-40}
+      - OLLAMA_REPEAT_PENALTY=${OLLAMA_REPEAT_PENALTY:-1.1}
+      # Database Configuration
+      - MONGODB_URI=${MONGODB_URI:-mongodb://localhost:27017/ai-chat}
+    volumes:
+      - ./uploads:/app/uploads
+      - ollama_data:/root/.ollama
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-password}
+      - MONGO_INITDB_DATABASE=ai-chat
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+  ollama_data: 

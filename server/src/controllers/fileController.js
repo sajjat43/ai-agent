@@ -221,8 +221,7 @@ export const analyzeFile = async (req, res) => {
       file.content;
     
     const analysisMessage = `${conversationContext}${otherFilesContext}Please analyze the following file based on this request: "${prompt}"\n\n${fileInfo}\nFile Content:\n${contentPreview}
-
-Please provide a comprehensive analysis while being aware of our conversation context and any other files in this session. If relevant, reference previous discussions or other files.`;
+    Please provide a comprehensive analysis while being aware of our conversation context and any other files in this session. If relevant, reference previous discussions or other files.`;
 
     // Use existing provider handlers
     const handler = providerHandlers[provider];

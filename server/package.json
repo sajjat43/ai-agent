@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test:llm": "node scripts/test-llm-adapter.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.9.1",
@@ -29,7 +30,11 @@
     "api",
     "gemini",
     "openai",
-    "anthropic"
+    "anthropic",
+    "ollama",
+    "llm",
+    "csv",
+    "batch-processing"
   ],
   "author": "",
   "license": "MIT"

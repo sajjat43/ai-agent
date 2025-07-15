@@ -117,8 +117,7 @@ export const chat = async (req, res) => {
     // Combine contexts with the current message
     if (conversationContext || fileContext) {
       contextualMessage = `${conversationContext}${fileContext}Current user message: ${message}
-
-Please respond to the current user message while being aware of our previous conversation and any uploaded files. If the user refers to previous messages or files, use the provided context to give a relevant response.`;
+      Please respond to the current user message while being aware of our previous conversation and any uploaded files. If the user refers to previous messages or files, use the provided context to give a relevant response.`;
     }
 
     const handler = providerHandlers[provider];
